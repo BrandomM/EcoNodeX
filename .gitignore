@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+*.spec.bak
+.pytest_cache/
+.mypy_cache/
+
+# Database
+*.db
+*.db-wal
+*.db-shm
+
+# Backups (user data)
+backups/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# PyInstaller
+*.manifest
+*.spec.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Env
+.env
+.env.local
+*.env
+
+# Photos (user data — large)
+photos/
+thumbnails/
