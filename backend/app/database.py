@@ -1,5 +1,5 @@
 """SQLAlchemy database setup."""
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 from .config import DATABASE_URL
@@ -38,6 +38,21 @@ def get_db():
 
 
 def init_db():
-    """Create all tables (idempotent)."""
+    """Create all tables and run lightweight column migrations."""
     from . import models  # noqa: F401 — ensures models are registered
     Base.metadata.create_all(bind=engine)
+    _migrate(engine)
+
+
+def _migrate(engine):
+    """Add columns introduced after the initial schema (idempotent)."""
+    migrations = [
+        "ALTER TABLE taxa ADD COLUMN is_recordable BOOLEAN NOT NULL DEFAULT 0",
+    ]
+    with engine.connect() as conn:
+        for stmt in migrations:
+            try:
+                conn.execute(text(stmt))
+                conn.commit()
+            except Exception:
+                pass  # column already exists

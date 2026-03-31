@@ -23,7 +23,12 @@ DATABASE_URL: str = f"sqlite:///{DATABASE_PATH}"
 
 HOST: str = "0.0.0.0"
 PORT: int = 8765
+VITE_PORT: int = 5173
 FRONTEND_DIST: Path = Path(__file__).parent.parent.parent / "frontend" / "dist"
+
+def is_dev_mode() -> bool:
+    """True when running without a built frontend (development)."""
+    return not FRONTEND_DIST.exists()
 
 
 def get_local_ip() -> str:

@@ -64,8 +64,8 @@ export const api = {
   locationSubtreeIds:   (id)        => get(`/api/locations/${id}/subtree-ids`),
 
   // Taxa
-  getTaxa:              (projectId, { tree, search, rank } = {}) =>
-    get(`/api/taxa${qs({ project_id: projectId, tree, search, rank })}`),
+  getTaxa:              (projectId, { tree, search, rank, recordable } = {}) =>
+    get(`/api/taxa${qs({ project_id: projectId, tree, search, rank, recordable })}`),
   createTaxon:          (data)      => post('/api/taxa', data),
   updateTaxon:          (id, data)  => patch(`/api/taxa/${id}`, data),
   deleteTaxon:          (id)        => del(`/api/taxa/${id}`),

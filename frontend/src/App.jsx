@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
 import { Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { ProjectProvider, useProject } from './context/ProjectContext'
+import { RecordsProvider } from './context/RecordsContext'
 import Layout from './components/Layout'
 
 import ProjectsPage  from './pages/ProjectsPage'
@@ -61,7 +62,9 @@ function ProjectInner() {
 export default function App() {
   return (
     <ProjectProvider>
-      <ProjectRoutes />
+      <RecordsProvider>
+        <ProjectRoutes />
+      </RecordsProvider>
     </ProjectProvider>
   )
 }

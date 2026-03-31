@@ -16,6 +16,8 @@ def _enrich(r: OccurrenceRecord) -> OccurrenceRecordOut:
     if r.taxon:
         out.taxon_name = r.taxon.scientific_name
         out.taxon_alias = r.taxon.alias
+        if r.taxon.media:
+            out.taxon_profile_media_id = r.taxon.media[0].id
     if r.method:
         out.method_label = r.method.label
     return out

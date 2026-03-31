@@ -17,6 +17,7 @@ function TaxonForm({ initial = {}, projectId, taxa = [], onSave, onClose }) {
     alias: initial.alias || '',
     parent_taxon_id: initial.parent_taxon_id || '',
     description: initial.description || '',
+    is_recordable: initial.is_recordable ?? false,
   })
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -70,6 +71,23 @@ function TaxonForm({ initial = {}, projectId, taxa = [], onSave, onClose }) {
         <div className="col-span-2">
           <label className="label">Descripción / notas</label>
           <textarea className="input h-16 resize-none" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+        </div>
+        <div className="col-span-2">
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <div
+              className={`relative w-10 h-6 rounded-full transition-colors ${form.is_recordable ? 'bg-primary-500' : 'bg-slate-300'}`}
+              onClick={() => setForm({ ...form, is_recordable: !form.is_recordable })}
+            >
+              <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.is_recordable ? 'translate-x-4' : ''}`} />
+            </div>
+            <span className="text-sm text-slate-700">
+              Usar en registros de ocurrencia
+              {form.is_recordable && <span className="ml-2 text-xs text-primary-600 font-medium">● activo</span>}
+            </span>
+          </label>
+          <p className="text-xs text-slate-400 mt-1 ml-13">
+            Solo los taxones marcados aquí aparecen al crear registros.
+          </p>
         </div>
       </div>
       <div className="flex gap-2 justify-end">
@@ -301,6 +319,12 @@ export default function TaxaPage() {
             <TreeView
               nodes={displayList}
               labelKey="scientific_name"
+              renderLabel={(t) => (
+                <span className="flex items-center gap-1.5">
+                  <span className="truncate">{t.scientific_name}</span>
+                  {t.is_recordable && <span className="text-primary-500 text-xs flex-shrink-0" title="Usar en registros">●</span>}
+                </span>
+              )}
               onSelect={handleSelect}
               onEdit={setEditTaxon}
               onDelete={setDeleteTarget}
@@ -314,7 +338,10 @@ export default function TaxaPage() {
                   className={`px-4 py-2 cursor-pointer hover:bg-slate-50 ${selectedTaxon?.id === t.id ? 'bg-primary-50' : ''}`}
                   onClick={() => handleSelect(t)}
                 >
-                  <p className="text-sm font-medium text-slate-800 truncate">{t.scientific_name}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium text-slate-800 truncate">{t.scientific_name}</p>
+                    {t.is_recordable && <span className="text-primary-500 text-xs flex-shrink-0" title="Usar en registros">●</span>}
+                  </div>
                   <div className="flex gap-1 mt-0.5">
                     {t.alias && <span className="text-xs text-slate-400">{t.alias}</span>}
                     <span className={`${RANK_COLORS[t.rank] || 'badge-slate'} ml-auto`}>{t.rank}</span>
@@ -352,7 +379,7 @@ export default function TaxaPage() {
               </div>
             </div>
             {selectedTaxon.description && (
-              <p className="text-sm text-slate-600 mb-4 bg-slate-50 p-3 rounded">{selectedTaxon.description}</p>
+              <p className="text-sm text-slate-600 mb-4 bg-slate-50 p-3 rounded whitespace-pre-wrap">{selectedTaxon.description}</p>
             )}
             <div className="mb-2 flex items-center justify-between">
               <h3 className="font-medium text-slate-700">Fotos</h3>

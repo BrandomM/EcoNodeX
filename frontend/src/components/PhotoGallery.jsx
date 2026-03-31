@@ -5,9 +5,9 @@ function PhotoCard({ media, onSetProfile, onDelete }) {
   return (
     <div className="relative group rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
       <img
-        src={api.mediaThumbnailUrl(media.id)}
+        src={api.mediaFileUrl(media.id)}
         alt={media.file_name}
-        className="w-full h-32 object-cover"
+        className="w-full aspect-square object-cover"
         loading="lazy"
         onError={(e) => { e.target.src = '/placeholder.svg' }}
       />

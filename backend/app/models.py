@@ -80,6 +80,7 @@ class Taxon(Base):
     common_name = Column(String(255))
     alias = Column(String(255))
     description = Column(Text)
+    is_recordable = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
 

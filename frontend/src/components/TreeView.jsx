@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 
-function TreeNode({ node, labelKey, onSelect, onEdit, onDelete, selectedId, depth = 0 }) {
+function TreeNode({ node, labelKey, renderLabel, onSelect, onEdit, onDelete, selectedId, depth = 0 }) {
   const [expanded, setExpanded] = useState(depth < 2)
   const hasChildren = node.children && node.children.length > 0
   const isSelected = selectedId === node.id
@@ -23,7 +23,9 @@ function TreeNode({ node, labelKey, onSelect, onEdit, onDelete, selectedId, dept
         ) : (
           <span className="w-4 shrink-0" />
         )}
-        <span className="flex-1 text-sm truncate">{node[labelKey]}</span>
+        <span className="flex-1 text-sm truncate min-w-0">
+          {renderLabel ? renderLabel(node) : node[labelKey]}
+        </span>
         {(onEdit || onDelete) && (
           <span className="hidden group-hover:flex gap-1">
             {onEdit && (
@@ -50,6 +52,7 @@ function TreeNode({ node, labelKey, onSelect, onEdit, onDelete, selectedId, dept
               key={child.id}
               node={child}
               labelKey={labelKey}
+              renderLabel={renderLabel}
               onSelect={onSelect}
               onEdit={onEdit}
               onDelete={onDelete}
@@ -63,7 +66,7 @@ function TreeNode({ node, labelKey, onSelect, onEdit, onDelete, selectedId, dept
   )
 }
 
-export default function TreeView({ nodes = [], labelKey = 'name', onSelect, onEdit, onDelete, selectedId }) {
+export default function TreeView({ nodes = [], labelKey = 'name', renderLabel, onSelect, onEdit, onDelete, selectedId }) {
   if (!nodes.length) {
     return <p className="text-sm text-slate-400 italic px-3 py-4">Sin elementos.</p>
   }
@@ -74,6 +77,7 @@ export default function TreeView({ nodes = [], labelKey = 'name', onSelect, onEd
           key={node.id}
           node={node}
           labelKey={labelKey}
+          renderLabel={renderLabel}
           onSelect={onSelect}
           onEdit={onEdit}
           onDelete={onDelete}

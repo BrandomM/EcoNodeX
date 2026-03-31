@@ -1,12 +1,45 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import ReactDOM from 'react-dom'
 import { useParams } from 'react-router-dom'
 import api from '../api/client'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
+import TaxonAvatar from '../components/TaxonAvatar'
+import { useRecords } from '../context/RecordsContext'
 
-function RecordForm({ initial = {}, projectId, taxa = [], methods = [], replicates = [], onSave, onClose }) {
+function DescriptionTooltip({ text, anchorRef, visible }) {
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+
+  useEffect(() => {
+    if (visible && anchorRef.current) {
+      const r = anchorRef.current.getBoundingClientRect()
+      setPos({
+        top: r.top + window.scrollY,
+        left: r.left + r.width / 2 + window.scrollX,
+      })
+    }
+  }, [visible, anchorRef])
+
+  if (!visible) return null
+
+  return ReactDOM.createPortal(
+    <div
+      style={{ top: pos.top, left: pos.left, transform: 'translate(-50%, calc(-100% - 10px))' }}
+      className="fixed z-[9999] w-72 bg-slate-800 text-white text-xs rounded-lg px-3 py-2 shadow-xl
+        whitespace-pre-wrap leading-relaxed pointer-events-none"
+    >
+      {text}
+      <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
+    </div>,
+    document.body
+  )
+}
+
+function RecordForm({ initial = {}, projectId, taxa = [], methods = [], replicates = [], lockedReplicate = null, onSave, onClose }) {
+  const [tooltipVisible, setTooltipVisible] = useState(false)
+  const previewRef = useRef(null)
   const [form, setForm] = useState({
-    replicate_id: initial.replicate_id || '',
+    replicate_id: lockedReplicate?.id || initial.replicate_id || '',
     taxon_id: initial.taxon_id || '',
     individual_count: initial.individual_count ?? 1,
     method_id: initial.method_id || '',
@@ -40,18 +73,59 @@ function RecordForm({ initial = {}, projectId, taxa = [], methods = [], replicat
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label">Réplica *</label>
-          <select className="input" value={form.replicate_id} onChange={(e) => setForm({ ...form, replicate_id: e.target.value })} required>
-            <option value="">— Seleccionar —</option>
-            {replicates.map((r) => <option key={r.id} value={r.id}>{r.code} (E{r.event_id})</option>)}
-          </select>
+          {lockedReplicate ? (
+            <div className="input bg-slate-50 text-slate-600 flex items-center gap-2">
+              <span className="font-mono font-medium">{lockedReplicate.code}</span>
+              <span className="text-xs text-slate-400">(fijada por contexto)</span>
+            </div>
+          ) : (
+            <select className="input" value={form.replicate_id} onChange={(e) => setForm({ ...form, replicate_id: e.target.value })} required>
+              <option value="">— Seleccionar —</option>
+              {replicates.map((r) => <option key={r.id} value={r.id}>{r.code} (E{r.event_id})</option>)}
+            </select>
+          )}
         </div>
         <div>
           <label className="label">Taxón *</label>
-          <select className="input" value={form.taxon_id} onChange={(e) => setForm({ ...form, taxon_id: e.target.value })} required>
+          <select
+            className="input w-full"
+            value={form.taxon_id}
+            onChange={(e) => setForm({ ...form, taxon_id: e.target.value })}
+            required
+          >
             <option value="">— Seleccionar —</option>
             {taxa.map((t) => <option key={t.id} value={t.id}>{t.alias || t.scientific_name}</option>)}
           </select>
         </div>
+      </div>
+      {(() => {
+        const t = taxa.find((t) => String(t.id) === String(form.taxon_id))
+        if (!t) return null
+        return (
+          <div className="flex justify-center">
+            <div
+              ref={previewRef}
+              className="relative"
+              onMouseEnter={() => t.description && setTooltipVisible(true)}
+              onMouseLeave={() => setTooltipVisible(false)}
+            >
+              <TaxonAvatar
+                mediaId={t.profile_media_id}
+                name={t.alias || t.scientific_name}
+                size="h-48 w-48"
+                square
+              />
+              {t.description && (
+                <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-white/80 text-slate-500 text-xs flex items-center justify-center cursor-default shadow-sm select-none">
+                  ⓘ
+                </span>
+              )}
+              <DescriptionTooltip text={t.description} anchorRef={previewRef} visible={tooltipVisible} />
+            </div>
+          </div>
+        )
+      })()}
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label">Conteo *</label>
           <input className="input" type="number" min="0" value={form.individual_count} onChange={(e) => setForm({ ...form, individual_count: e.target.value })} required />
@@ -93,13 +167,24 @@ export default function RecordsPage() {
   const { projectId } = useParams()
   const pid = Number(projectId)
 
+  const {
+    contextEventId, changeEvent,
+    contextReplicateId, setContextReplicateId,
+    contextReplicates, loadingReps,
+    filters, setFilters,
+    clearContext: clearCtx,
+    setProject,
+  } = useRecords()
+
+  // Sync project so context resets on project change
+  useEffect(() => { setProject(pid) }, [pid, setProject])
+
   const [records, setRecords] = useState([])
   const [taxa, setTaxa] = useState([])
   const [methods, setMethods] = useState([])
   const [events, setEvents] = useState([])
   const [allReplicates, setAllReplicates] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filters, setFilters] = useState({ date_from: '', date_to: '', method_id: '', event_id: '' })
   const [showCreate, setShowCreate] = useState(false)
   const [editRecord, setEditRecord] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
@@ -107,12 +192,22 @@ export default function RecordsPage() {
   const [page, setPage] = useState(0)
   const LIMIT = 100
 
+  const activeEvent = events.find((e) => String(e.id) === String(contextEventId)) || null
+  const activeReplicate = contextReplicates.find((r) => String(r.id) === String(contextReplicateId)) || null
+
+  const buildQuery = useCallback(() => {
+    const q = { ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v)) }
+    if (contextEventId)     q.event_id     = contextEventId
+    if (contextReplicateId) q.replicate_id = contextReplicateId
+    return q
+  }, [filters, contextEventId, contextReplicateId])
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const [recs, tx, meth, evs] = await Promise.all([
-        api.getRecords(pid, { ...Object.fromEntries(Object.entries(filters).filter(([,v]) => v)), skip: page * LIMIT, limit: LIMIT }),
-        api.getTaxa(pid),
+        api.getRecords(pid, { ...buildQuery(), skip: page * LIMIT, limit: LIMIT }),
+        api.getTaxa(pid, { recordable: true }),
         api.getMethods(pid),
         api.getEvents(pid),
       ])
@@ -121,12 +216,11 @@ export default function RecordsPage() {
       setMethods(meth)
       setEvents(evs)
     } finally { setLoading(false) }
-  }, [pid, filters, page])
+  }, [pid, buildQuery, page])
 
   useEffect(() => { load() }, [load])
 
-  // Load all replicates for the form (across all events)
-  const loadReplicates = async () => {
+  const loadAllReplicates = async () => {
     const reps = []
     for (const ev of events) {
       const r = await api.getReplicates(ev.id)
@@ -143,41 +237,96 @@ export default function RecordsPage() {
     catch (e) { alert(e.message) } finally { setDeleting(false) }
   }
 
-  const openCreate = async () => { await loadReplicates(); setShowCreate(true) }
-  const openEdit   = async (r)  => { await loadReplicates(); setEditRecord(r) }
+  const openCreate = async () => {
+    if (!activeReplicate) await loadAllReplicates()
+    setShowCreate(true)
+  }
+  const openEdit = async (r) => {
+    if (!activeReplicate) await loadAllReplicates()
+    setEditRecord(r)
+  }
+
+  const clearContext = () => { clearCtx(); setPage(0) }
 
   return (
     <div className="flex flex-col h-full">
-      {/* Filters bar */}
-      <div className="bg-white border-b border-slate-200 px-6 py-3 flex flex-wrap gap-3 items-end">
-        <div>
-          <label className="label">Desde</label>
-          <input className="input w-36" type="date" value={filters.date_from} onChange={(e) => setFilters({ ...filters, date_from: e.target.value })} />
+      {/* Context selector bar */}
+      <div className="bg-white border-b border-slate-200 px-6 py-3 space-y-2">
+        <div className="flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="label">Evento de muestreo</label>
+            <select
+              className="input w-56"
+              value={contextEventId}
+              onChange={(e) => { changeEvent(e.target.value); setPage(0) }}
+            >
+              <option value="">Todos los eventos</option>
+              {events.map((ev) => (
+                <option key={ev.id} value={ev.id}>{ev.location_name} — {ev.start_date}</option>
+              ))}
+            </select>
+          </div>
+
+          {contextEventId && (
+            <div>
+              <label className="label">Réplica</label>
+              <select
+                className="input w-44"
+                value={contextReplicateId}
+                onChange={(e) => { setContextReplicateId(e.target.value); setPage(0) }}
+                disabled={loadingReps}
+              >
+                <option value="">Todas las réplicas</option>
+                {contextReplicates.map((r) => (
+                  <option key={r.id} value={r.id}>{r.code}{r.method_label ? ` — ${r.method_label}` : ''}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div>
+            <label className="label">Desde</label>
+            <input className="input w-36" type="date" value={filters.date_from} onChange={(e) => setFilters({ ...filters, date_from: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">Hasta</label>
+            <input className="input w-36" type="date" value={filters.date_to} onChange={(e) => setFilters({ ...filters, date_to: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">Método</label>
+            <select className="input w-40" value={filters.method_id} onChange={(e) => setFilters({ ...filters, method_id: e.target.value })}>
+              <option value="">Todos</option>
+              {methods.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+            </select>
+          </div>
+          {(contextEventId || filters.date_from || filters.date_to || filters.method_id) && (
+            <button
+              className="btn-secondary text-sm self-end"
+              onClick={() => { clearContext(); setFilters({ date_from: '', date_to: '', method_id: '' }) }}
+            >
+              Limpiar
+            </button>
+          )}
+          <div className="ml-auto self-end">
+            <button className="btn-primary text-sm" onClick={openCreate}>+ Registro</button>
+          </div>
         </div>
-        <div>
-          <label className="label">Hasta</label>
-          <input className="input w-36" type="date" value={filters.date_to} onChange={(e) => setFilters({ ...filters, date_to: e.target.value })} />
-        </div>
-        <div>
-          <label className="label">Evento</label>
-          <select className="input w-48" value={filters.event_id} onChange={(e) => setFilters({ ...filters, event_id: e.target.value })}>
-            <option value="">Todos</option>
-            {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.location_name} {ev.start_date}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="label">Método</label>
-          <select className="input w-40" value={filters.method_id} onChange={(e) => setFilters({ ...filters, method_id: e.target.value })}>
-            <option value="">Todos</option>
-            {methods.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-          </select>
-        </div>
-        <button className="btn-secondary text-sm" onClick={() => setFilters({ date_from: '', date_to: '', method_id: '', event_id: '' })}>
-          Limpiar
-        </button>
-        <div className="ml-auto">
-          <button className="btn-primary text-sm" onClick={openCreate}>+ Registro</button>
-        </div>
+
+        {/* Active context banner */}
+        {(activeEvent || activeReplicate) && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-primary-50 border border-primary-200 rounded-md text-sm">
+            <span className="text-primary-600 font-medium">Contexto activo:</span>
+            <span className="text-slate-700">{activeEvent?.location_name} — {activeEvent?.start_date}</span>
+            {activeReplicate && (
+              <>
+                <span className="text-slate-400">›</span>
+                <span className="font-mono font-semibold text-primary-700">Réplica {activeReplicate.code}</span>
+                {activeReplicate.method_label && <span className="text-slate-500 text-xs">({activeReplicate.method_label})</span>}
+              </>
+            )}
+            <button className="ml-auto text-slate-400 hover:text-slate-600 text-xs" onClick={clearContext}>✕ Quitar contexto</button>
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -191,7 +340,7 @@ export default function RecordsPage() {
                 <th className="text-left px-4 py-2 font-medium text-slate-600">Taxón</th>
                 <th className="text-left px-4 py-2 font-medium text-slate-600">Alias</th>
                 <th className="text-right px-4 py-2 font-medium text-slate-600">Conteo</th>
-                <th className="text-left px-4 py-2 font-medium text-slate-600">Réplica</th>
+                {!activeReplicate && <th className="text-left px-4 py-2 font-medium text-slate-600">Réplica</th>}
                 <th className="text-left px-4 py-2 font-medium text-slate-600">Método</th>
                 <th className="text-left px-4 py-2 font-medium text-slate-600">Fecha/hora</th>
                 <th className="px-4 py-2"></th>
@@ -199,15 +348,20 @@ export default function RecordsPage() {
             </thead>
             <tbody>
               {records.length === 0 ? (
-                <tr><td colSpan={7} className="text-center text-slate-400 py-12 italic">Sin registros.</td></tr>
+                <tr><td colSpan={activeReplicate ? 6 : 7} className="text-center text-slate-400 py-12 italic">Sin registros.</td></tr>
               ) : records.map((r) => (
                 <tr key={r.id} className="border-b border-slate-100 table-row-hover">
-                  <td className="px-4 py-2 font-medium">{r.taxon_name}</td>
+                  <td className="px-4 py-2">
+                    <div className="flex items-center gap-2">
+                      <TaxonAvatar mediaId={r.taxon_profile_media_id} name={r.taxon_name || ''} />
+                      <span className="font-medium">{r.taxon_name}</span>
+                    </div>
+                  </td>
                   <td className="px-4 py-2 text-slate-500 text-xs">{r.taxon_alias}</td>
                   <td className="px-4 py-2 text-right font-mono">{r.individual_count}</td>
-                  <td className="px-4 py-2 text-xs text-slate-500">Rep {r.replicate_id}</td>
+                  {!activeReplicate && <td className="px-4 py-2 text-xs text-slate-500">Rep {r.replicate_id}</td>}
                   <td className="px-4 py-2 text-xs text-slate-500">{r.method_label || '—'}</td>
-                  <td className="px-4 py-2 text-xs text-slate-500">{r.date_time ? r.date_time.substring(0,16) : '—'}</td>
+                  <td className="px-4 py-2 text-xs text-slate-500">{r.date_time ? r.date_time.substring(0, 16) : '—'}</td>
                   <td className="px-4 py-2">
                     <div className="flex gap-1 justify-end">
                       <button className="btn-ghost text-xs" onClick={() => openEdit(r)}>✎</button>
@@ -231,11 +385,28 @@ export default function RecordsPage() {
 
       {/* Modals */}
       <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Nuevo registro" size="lg">
-        <RecordForm projectId={pid} taxa={taxa} methods={methods} replicates={allReplicates} onSave={handleCreate} onClose={() => setShowCreate(false)} />
+        <RecordForm
+          projectId={pid}
+          taxa={taxa}
+          methods={methods}
+          replicates={allReplicates}
+          lockedReplicate={activeReplicate}
+          onSave={handleCreate}
+          onClose={() => setShowCreate(false)}
+        />
       </Modal>
       {editRecord && (
         <Modal isOpen={!!editRecord} onClose={() => setEditRecord(null)} title="Editar registro" size="lg">
-          <RecordForm initial={editRecord} projectId={pid} taxa={taxa} methods={methods} replicates={allReplicates} onSave={handleEdit} onClose={() => setEditRecord(null)} />
+          <RecordForm
+            initial={editRecord}
+            projectId={pid}
+            taxa={taxa}
+            methods={methods}
+            replicates={allReplicates}
+            lockedReplicate={activeReplicate}
+            onSave={handleEdit}
+            onClose={() => setEditRecord(null)}
+          />
         </Modal>
       )}
       <ConfirmDialog isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete}

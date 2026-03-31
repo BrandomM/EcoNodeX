@@ -1,6 +1,7 @@
 """CRUD and merge for taxa (hierarchical, including morphospecies)."""
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -32,12 +33,26 @@ def _auto_alias(db: Session, project_id: int, scientific_name: str, rank: str) -
     return f"{prefix} {existing + 1}"
 
 
-def _build_tree(taxa: List[Taxon], parent_id: Optional[int] = None) -> List[dict]:
+def _profile_map(db: Session, taxon_ids: List[int]) -> dict:
+    """Return {taxon_id: first_media_id} for the given taxon ids."""
+    if not taxon_ids:
+        return {}
+    rows = (
+        db.query(Media.linked_to_id, func.min(Media.id).label("mid"))
+        .filter(Media.linked_to_type == "taxon", Media.linked_to_id.in_(taxon_ids))
+        .group_by(Media.linked_to_id)
+        .all()
+    )
+    return {r.linked_to_id: r.mid for r in rows}
+
+
+def _build_tree(taxa: List[Taxon], profiles: dict, parent_id: Optional[int] = None) -> List[dict]:
     result = []
     for t in taxa:
         if t.parent_taxon_id == parent_id:
-            children = _build_tree(taxa, t.id)
+            children = _build_tree(taxa, profiles, t.id)
             d = TaxonOut.model_validate(t).model_dump()
+            d["profile_media_id"] = profiles.get(t.id)
             d["children"] = children
             result.append(d)
     return result
@@ -49,6 +64,7 @@ def list_taxa(
     tree: bool = Query(False),
     search: Optional[str] = Query(None),
     rank: Optional[str] = Query(None),
+    recordable: Optional[bool] = Query(None),
     db: Session = Depends(get_db),
 ):
     q = db.query(Taxon).filter_by(project_id=project_id)
@@ -61,10 +77,18 @@ def list_taxa(
         )
     if rank:
         q = q.filter(Taxon.rank.ilike(rank))
+    if recordable is not None:
+        q = q.filter(Taxon.is_recordable == recordable)
     taxa = q.order_by(Taxon.scientific_name).all()
+    profiles = _profile_map(db, [t.id for t in taxa])
     if tree and not search and not rank:
-        return _build_tree(taxa)
-    return taxa
+        return _build_tree(taxa, profiles)
+    result = []
+    for t in taxa:
+        d = TaxonOut.model_validate(t).model_dump()
+        d["profile_media_id"] = profiles.get(t.id)
+        result.append(d)
+    return result
 
 
 @router.post("", response_model=TaxonOut, status_code=201)

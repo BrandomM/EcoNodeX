@@ -92,6 +92,7 @@ class TaxonCreate(BaseModel):
     common_name: Optional[str] = None
     alias: Optional[str] = None
     description: Optional[str] = None
+    is_recordable: bool = False
 
 
 class TaxonUpdate(BaseModel):
@@ -101,6 +102,7 @@ class TaxonUpdate(BaseModel):
     common_name: Optional[str] = None
     alias: Optional[str] = None
     description: Optional[str] = None
+    is_recordable: Optional[bool] = None
 
 
 class TaxonOut(_TimestampMixin):
@@ -112,6 +114,8 @@ class TaxonOut(_TimestampMixin):
     common_name: Optional[str] = None
     alias: Optional[str] = None
     description: Optional[str] = None
+    is_recordable: bool = False
+    profile_media_id: Optional[int] = None
     children: List["TaxonOut"] = []
 
 
@@ -231,6 +235,7 @@ class OccurrenceRecordOut(_TimestampMixin):
     taxon_id: int
     taxon_name: Optional[str] = None
     taxon_alias: Optional[str] = None
+    taxon_profile_media_id: Optional[int] = None
     individual_count: int
     method_id: Optional[int] = None
     method_label: Optional[str] = None

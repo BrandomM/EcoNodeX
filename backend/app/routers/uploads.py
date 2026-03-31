@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile, 
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from ..config import PORT, get_local_ip
+from ..config import PORT, VITE_PORT, get_local_ip, is_dev_mode
 from ..database import get_db
 from ..models import Media, Project, Taxon, Location, Replicate, OccurrenceRecord, SamplingEvent
 from ..schemas import QRResponse, UploadDestination
@@ -26,7 +26,8 @@ def get_upload_qr(project_id: int = Query(...)):
         import base64
 
         local_ip = get_local_ip()
-        url = f"http://{local_ip}:{PORT}/upload?project={project_id}"
+        frontend_port = VITE_PORT if is_dev_mode() else PORT
+        url = f"http://{local_ip}:{frontend_port}/upload?project={project_id}"
 
         qr = qrcode.QRCode(version=1, box_size=8, border=4)
         qr.add_data(url)
