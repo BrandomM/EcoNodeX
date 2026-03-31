@@ -35,6 +35,77 @@ function DescriptionTooltip({ text, anchorRef, visible }) {
   )
 }
 
+function TaxonSearch({ taxa, value, onChange }) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const [focused, setFocused] = useState(false)
+  const containerRef = useRef(null)
+
+  const selected = taxa.find((t) => String(t.id) === String(value)) || null
+
+  const filtered = query.length === 0
+    ? taxa.slice(0, 50)
+    : taxa.filter((t) => {
+        const q = query.toLowerCase()
+        return (t.alias || '').toLowerCase().startsWith(q) ||
+               t.scientific_name.toLowerCase().startsWith(q)
+      })
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false)
+        setFocused(false)
+        setQuery('')
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const select = (taxon) => {
+    onChange(taxon.id)
+    setQuery('')
+    setOpen(false)
+    setFocused(false)
+  }
+
+  const inputValue = focused ? query : (selected ? (selected.alias || selected.scientific_name) : '')
+
+  return (
+    <div ref={containerRef} className="relative">
+      <input
+        className="input w-full"
+        placeholder="Buscar taxón…"
+        value={inputValue}
+        onFocus={() => { setFocused(true); setOpen(true); setQuery('') }}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+      />
+      {selected && !focused && (
+        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">✓</span>
+      )}
+      {open && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-52 overflow-y-auto">
+          {filtered.length === 0 ? (
+            <p className="text-xs text-slate-400 px-3 py-2 italic">Sin resultados.</p>
+          ) : filtered.map((t) => (
+            <div
+              key={t.id}
+              className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-primary-50
+                ${String(t.id) === String(value) ? 'bg-primary-50' : ''}`}
+              onMouseDown={(e) => { e.preventDefault(); select(t) }}
+            >
+              <TaxonAvatar mediaId={t.profile_media_id} name={t.alias || t.scientific_name} size="h-7 w-7" />
+              <span className="text-sm flex-1 truncate">{t.alias || t.scientific_name}</span>
+              {t.alias && <span className="text-xs text-slate-400 truncate max-w-24">{t.scientific_name}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function RecordForm({ initial = {}, projectId, taxa = [], methods = [], replicates = [], lockedReplicate = null, onSave, onClose }) {
   const [tooltipVisible, setTooltipVisible] = useState(false)
   const previewRef = useRef(null)
@@ -87,15 +158,11 @@ function RecordForm({ initial = {}, projectId, taxa = [], methods = [], replicat
         </div>
         <div>
           <label className="label">Taxón *</label>
-          <select
-            className="input w-full"
+          <TaxonSearch
+            taxa={taxa}
             value={form.taxon_id}
-            onChange={(e) => setForm({ ...form, taxon_id: e.target.value })}
-            required
-          >
-            <option value="">— Seleccionar —</option>
-            {taxa.map((t) => <option key={t.id} value={t.id}>{t.alias || t.scientific_name}</option>)}
-          </select>
+            onChange={(id) => setForm({ ...form, taxon_id: id })}
+          />
         </div>
       </div>
       {(() => {

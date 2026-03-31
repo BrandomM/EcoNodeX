@@ -30,6 +30,7 @@ Entidades principales: `Project → Location (árbol) / Taxon (árbol) / Method 
 - Localidades y taxa son árboles auto-referenciales (parent_id nullable)
 - Los alias de taxa se auto-generan si no se especifican
 - Las fotos se almacenan en la carpeta local configurada por proyecto
+- `Taxon.is_recordable` (bool, default `False`): marca si el taxón debe aparecer en el formulario de nuevo registro. Solo los taxones marcados aparecen en el selector de taxón al crear registros de ocurrencia.
 
 ## Flujos importantes
 
@@ -41,10 +42,14 @@ Entidades principales: `Project → Location (árbol) / Taxon (árbol) / Method 
 5. Log en tabla `merge_logs`
 
 ### Subida de fotos por QR (LAN)
-1. Backend genera QR con URL `http://<IP>:8765/upload?project=<id>`
+1. Backend genera QR con URL:
+   - **Producción** (`frontend/dist/` existe): `http://<IP>:8765/upload?project=<id>`
+   - **Desarrollo** (`frontend/dist/` no existe): `http://<IP>:5173/upload?project=<id>` (Vite)
+   - La detección es automática vía `is_dev_mode()` en `config.py`
 2. Página móvil `/upload` (React SPA, dark mode, sin auth)
 3. `POST /api/upload/files` recibe `multipart/form-data` con: `project_id`, `linked_to_type`, `linked_to_id`, `files[]`
 4. Se generan thumbnails en `<photos_root>/thumbnails/`
+5. En desarrollo, Vite debe arrancar con `host: true` (ya configurado) para ser accesible en LAN
 
 ### DwC-A export
 - Usa Event core (no Occurrence core)
@@ -113,3 +118,5 @@ iscc installer/setup.iss
 - El servidor vincula a `0.0.0.0` para ser accesible en LAN (necesario para el flujo QR)
 - Los respaldos se guardan en `~/EcoNodeX/backups/` como ZIPs con timestamp
 - PyInstaller requiere `frontend/dist/` ya compilado antes de ejecutar `pyinstaller econodex.spec`
+- **Migraciones de esquema**: `init_db()` llama a `_migrate()` que ejecuta `ALTER TABLE` idempotentes para añadir columnas nuevas a BDs existentes. Toda columna añadida al modelo después del primer despliegue debe tener su `ALTER TABLE` correspondiente en `_migrate()` en `database.py`.
+- **Estado persistente de filtros en Registros**: el contexto activo (evento + réplica seleccionados) vive en `RecordsContext` (`frontend/src/context/RecordsContext.jsx`), no en el estado local de `RecordsPage`. Esto lo preserva al cambiar de pestaña. Se resetea automáticamente al cambiar de proyecto.

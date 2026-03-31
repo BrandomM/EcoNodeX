@@ -74,6 +74,8 @@ npm run dev
 Abre `http://localhost:5173` en el navegador.
 El proxy de Vite redirige `/api/*` al backend en `:8765`.
 
+> **QR en modo desarrollo:** el código QR para subida de fotos apunta al puerto `5173` (Vite) automáticamente, no al `8765`. El móvil debe estar en la misma red Wi-Fi.
+
 ---
 
 ## Compilar el frontend
@@ -189,7 +191,7 @@ EcoNodeX/
 │   └── src/
 │       ├── App.jsx
 │       ├── api/client.js      # Cliente fetch para la API
-│       ├── context/           # Contexto de proyecto activo
+│       ├── context/           # ProjectContext (proyecto activo) + RecordsContext (filtros persistentes)
 │       ├── hooks/             # useApi hook
 │       ├── components/        # Layout, TreeView, Modal, PhotoGallery, etc.
 │       └── pages/             # Una página por módulo de la app
@@ -203,7 +205,7 @@ EcoNodeX/
 ## Flujo de subida de fotos por QR (LAN)
 
 1. En la app de escritorio, ve a **Taxa** (o Localidades) y haz clic en **📷 Subir desde móvil**.
-2. Aparece un código QR con la URL `http://<IP-LAN>:8765/upload?project=<id>`.
+2. Aparece un código QR. La URL apunta al puerto `8765` en producción y al `5173` (Vite) en desarrollo.
 3. Escanea el QR con el móvil (misma red Wi-Fi).
 4. En la página móvil:
    - Busca y selecciona el destino (taxón, localidad o réplica).
