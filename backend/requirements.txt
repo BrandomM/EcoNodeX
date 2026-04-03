@@ -9,3 +9,4 @@ openpyxl>=3.1.2
 numpy>=1.26.0
 matplotlib>=3.8.0
 aiofiles>=23.2.1
+pystray>=0.19.5

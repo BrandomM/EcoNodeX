@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./EcoNodeX.exe --no-browser)",
+      "Bash(curl -s http://localhost:8765/)",
+      "Bash(taskkill /F /IM EcoNodeX.exe)",
+      "Bash(taskkill /F /FI \"WINDOWTITLE eq EcoNodeX*\")",
+      "Bash(netstat -ano)",
+      "Bash(taskkill //F //IM EcoNodeX.exe)",
+      "Bash(python assets/gen_icon.py)"
+    ]
+  }
+}

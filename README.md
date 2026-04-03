@@ -98,24 +98,48 @@ python main.py
 
 ## Empaquetar con PyInstaller
 
+> **Importante:** PyInstaller debe ejecutarse **desde el entorno virtual del proyecto**, no desde un Python global. Si se usa el Python global, `collect_all()` en el spec no encontrará los paquetes instalados (`sqlalchemy`, `fastapi`, etc.) y el ejecutable fallará al arrancar sin mostrar ningún error visible.
+
 ```bash
-# 1. Compilar el frontend primero
+# 1. Activar el entorno virtual (si no está activo)
+.venv\Scripts\activate
+
+# 2. Compilar el frontend primero (obligatorio — PyInstaller empaqueta dist/)
 cd frontend && npm run build && cd ..
 
-# 2. Instalar PyInstaller
-pip install pyinstaller
-
-# 3. Generar el ejecutable
-pyinstaller econodex.spec
+# 3. Generar el ejecutable usando el PyInstaller del venv
+#    --clean elimina cachés previos para evitar empaquetar artefactos obsoletos
+.venv\Scripts\pyinstaller econodex.spec --clean
 
 # El resultado queda en dist/EcoNodeX/
-# Ejecutable: dist/EcoNodeX/EcoNodeX.exe
+# Ejecutable principal: dist/EcoNodeX/EcoNodeX.exe
+# Dependencias:         dist/EcoNodeX/_internal/   (no mover ni borrar)
 ```
 
+**Estructura de la carpeta de salida:**
+
+```
+dist/EcoNodeX/
+├── EcoNodeX.exe        ← ejecutable que distribuyes
+├── econodex.log        ← se crea al ejecutar; contiene stdout/stderr del servidor
+└── _internal/          ← dependencias Python, DLLs y frontend/dist empaquetados
+                           (debe acompañar siempre al .exe)
+```
+
+**Diagnóstico de errores de arranque:**
+
+Si el exe abre el navegador pero muestra "No se puede acceder a este sitio", el servidor ha fallado silenciosamente. Revisa `dist\EcoNodeX\econodex.log` — contiene el traceback completo. Los errores más comunes son:
+
+| Error en el log | Causa | Solución |
+|---|---|---|
+| `ModuleNotFoundError: No module named 'backend'` | PyInstaller no detectó el paquete | Verificar que `main.py` importa `_app` directamente, no como string a uvicorn |
+| `ModuleNotFoundError: No module named 'sqlalchemy'` | Se usó el Python global en lugar del venv | Ejecutar con `.venv\Scripts\pyinstaller` |
+| Puerto en uso | Otra instancia ya está corriendo en `8765` | Cerrar la instancia previa |
+
 El ejecutable:
-- Incluye el frontend compilado como archivos de datos.
-- Al iniciarse, arranca el servidor FastAPI en un hilo y abre el navegador en `http://localhost:8765`.
-- Los datos del usuario se guardan en `%USERPROFILE%\EcoNodeX\` (o `~/EcoNodeX/`).
+- Incluye el frontend compilado como archivos de datos en `_internal/frontend/dist/`.
+- Al iniciarse, espera activamente a que el servidor esté listo antes de abrir el navegador.
+- Los datos del usuario se guardan en `<carpeta del exe>\data\econodex.db`.
 
 ---
 

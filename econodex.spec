@@ -5,46 +5,43 @@ Build with: pyinstaller econodex.spec
 """
 from pathlib import Path
 import sys
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files, collect_all
 
 ROOT = Path(SPECPATH)
 
 block_cipher = None
 
+# Collect packages that rely heavily on dynamic imports
+_hidden = []
+_datas_extra = []
+_binaries_extra = []
+
+for pkg in ('sqlalchemy', 'fastapi', 'starlette', 'pydantic', 'anyio',
+            'uvicorn', 'multipart', 'aiofiles', 'openpyxl', 'pystray'):
+    _d, _b, _h = collect_all(pkg)  # collect_all returns (datas, binaries, hiddenimports)
+    _hidden += _h
+    _datas_extra += _d
+    _binaries_extra += _b
+
 a = Analysis(
     [str(ROOT / 'main.py')],
     pathex=[str(ROOT)],
-    binaries=[],
+    binaries=_binaries_extra,
     datas=[
         # Include the built React frontend
         (str(ROOT / 'frontend' / 'dist'), 'frontend/dist'),
-    ],
-    hiddenimports=[
-        'uvicorn.logging',
-        'uvicorn.loops',
-        'uvicorn.loops.auto',
-        'uvicorn.protocols',
-        'uvicorn.protocols.http',
-        'uvicorn.protocols.http.auto',
-        'uvicorn.protocols.websockets',
-        'uvicorn.protocols.websockets.auto',
-        'uvicorn.lifespan',
-        'uvicorn.lifespan.on',
-        'uvicorn.lifespan.off',
-        'fastapi',
-        'sqlalchemy',
-        'sqlalchemy.dialects.sqlite',
-        'pydantic',
-        'multipart',
+        # App icon for system tray
+        (str(ROOT / 'assets'), 'assets'),
+    ] + _datas_extra,
+    hiddenimports=_hidden + [
         'PIL._imaging',
         'PIL.Image',
         'PIL.ExifTags',
         'qrcode',
         'qrcode.image.pil',
-        'openpyxl',
         'numpy',
         'matplotlib',
         'matplotlib.backends.backend_agg',
-        'aiofiles',
     ],
     hookspath=[],
     hooksconfig={},
@@ -74,6 +71,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=str(ROOT / 'assets' / 'icon.ico'),
 )
 
 coll = COLLECT(

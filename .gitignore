@@ -30,6 +30,7 @@ frontend/.vite/
 # PyInstaller
 *.manifest
 *.spec.log
+econodex.log
 
 # OS
 .DS_Store
