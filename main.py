@@ -6,6 +6,7 @@ Usage:
     python main.py --no-browser  # run without opening browser
 """
 import argparse
+import ctypes
 import pathlib
 import socket
 import sys
@@ -26,6 +27,15 @@ import uvicorn
 from PIL import Image, ImageDraw
 
 from backend.app.main import app as _app  # direct import so PyInstaller collects backend.*
+
+_instance_mutex = None  # held for the lifetime of the process; prevents GC release
+
+
+def _acquire_single_instance() -> bool:
+    """Create a named mutex. Returns False if another instance already holds it."""
+    global _instance_mutex
+    _instance_mutex = ctypes.windll.kernel32.CreateMutexW(None, True, "EcoNodeX_SingleInstance")
+    return ctypes.windll.kernel32.GetLastError() != 183  # ERROR_ALREADY_EXISTS
 
 
 def _make_tray_icon() -> Image.Image:
@@ -52,6 +62,10 @@ def main():
     parser.add_argument("--port", type=int, default=8765, help="Port")
     parser.add_argument("--no-browser", action="store_true", help="Don't open browser")
     args = parser.parse_args()
+
+    if not _acquire_single_instance():
+        webbrowser.open(f"http://localhost:{args.port}")
+        sys.exit(0)
 
     server_thread = threading.Thread(
         target=_start_server,
