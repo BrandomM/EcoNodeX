@@ -134,7 +134,7 @@ Si el exe abre el navegador pero muestra "No se puede acceder a este sitio", el 
 |---|---|---|
 | `ModuleNotFoundError: No module named 'backend'` | PyInstaller no detectó el paquete | Verificar que `main.py` importa `_app` directamente, no como string a uvicorn |
 | `ModuleNotFoundError: No module named 'sqlalchemy'` | Se usó el Python global en lugar del venv | Ejecutar con `.venv\Scripts\pyinstaller` |
-| Puerto en uso | Otra instancia ya está corriendo en `8765` | Cerrar la instancia previa |
+| Puerto en uso | Otra instancia corriendo en `8765` (solo en dev; el exe lo gestiona solo) | Cerrar la instancia previa |
 
 El ejecutable:
 - Incluye el frontend compilado como archivos de datos en `_internal/frontend/dist/`.
@@ -177,6 +177,10 @@ Los tests usan una BD SQLite en memoria; no requieren servidor en ejecución.
 EcoNodeX/
 ├── main.py                    # Punto de entrada (PyInstaller + dev)
 ├── econodex.spec              # Spec de PyInstaller
+├── assets/
+│   ├── icon.png               # Icono del tray (64×64, generado desde favicon.svg)
+│   ├── icon.ico               # Icono del exe (multi-resolución: 16–256 px)
+│   └── gen_icon.py            # Script para regenerar ambos iconos
 ├── backend/
 │   ├── requirements.txt
 │   └── app/
